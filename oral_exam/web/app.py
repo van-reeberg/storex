@@ -18,6 +18,7 @@ import courselib
 from oral_exam import llm
 from oral_exam import models
 from oral_exam.audio import synthesis
+from oral_exam.audio.viseme_analysis import analyse_visemes
 
 from oral_exam.web.session import SessionRegistry, SessionsBusy
 
@@ -26,6 +27,10 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"),
 logger = logging.getLogger(__name__)
 
 STATIC_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+# "FHR"
+# Used to save the generated utterance audio 
+LOCAL_ROOT = os.getenv("LOCAL_ROOT")
 
 app = Flask(__name__, static_folder=None)
 # Whisper runs inside the request, so an oversized upload would occupy a worker
@@ -184,6 +189,28 @@ def answer():
     text = models.get_speech_recognition().transcribe(recording, upload.mimetype)
     return _accept_answer(session, text, silence=text is None)
 
+@app.route("/api/answer_embodied", methods=["POST"])
+def answer_embodied():
+    """Loads and transcribes a recording from a local path and submits it as the answer. 
+    Adapted from .answer().\n
+    (FHR)
+    """
+    
+    exam_id = {request.args.get("exam_id", "")}
+    audio_path = {request.args.get("exam_id", "")}
+    print(f"exam_id: {exam_id} \n audio_path: {audio_path}", flush=True)
+    
+    session, error = _require_session(request.args.get("exam_id", ""))
+    if error:
+        return error
+
+    audio_path = "."+request.args.get("audio_path")
+    if audio_path is None:
+        return jsonify({"error": "Es wurde kein Pfad übertragen."}), 400
+
+    text = models.get_speech_recognition().transcribe(audio=audio_path, mime_type="audio/wav")
+    return _accept_answer(session, text, silence=text is None)
+
 
 @app.route("/api/answer/text", methods=["POST"])
 def answer_text():
@@ -218,6 +245,38 @@ def speak(exam_id, seq):
 
     return app.response_class(session.audio_cache[seq], mimetype="audio/wav")
 
+
+@app.route("/api/tts_embodied/<exam_id>/<int:seq>")
+def speak_embodied(exam_id, seq):
+    """Saves the examiner's utterance locally and returns its absolute filepath,
+    as well as an array containing the sequence of visemes for lip-sync.
+    Adapted from .speak().\n
+    (FHR)
+    """
+    session, error = _require_session(exam_id)
+    if error:
+        return error
+    if not synthesis.is_server_side():
+        return jsonify({"error": "Server side speech synthesis is disabled."}), 404
+
+    if seq not in session.audio_cache:
+        utterance = next((event for event in session.channel.events
+                          if event["seq"] == seq and event["type"] == "say"), None)
+        if utterance is None:
+            return jsonify({"error": "unknown utterance"}), 404
+        audio = synthesis.synthesize(utterance.get("text", ""), save_to_file=True)
+        if audio is None:
+            return jsonify({"error": "Die Sprachsynthese ist fehlgeschlagen."}), 500
+        session.audio_cache[seq] = audio
+    
+    filepath = os.getenv("WAV_PATH")
+    
+    visemes = analyse_visemes(filepath)
+    
+    filepath_exp = filepath.removeprefix(".")
+    filepath_exp = LOCAL_ROOT+filepath_exp
+
+    return jsonify({"filepath": filepath_exp, "visemes": visemes})
 
 # POST is accepted as well, because navigator.sendBeacon can only send POST and
 # the page uses it to free the slot when the tab is closed.

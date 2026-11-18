@@ -1,0 +1,4 @@
+# "FHR"
+# Libraries for the operation of the Viseme-Detection-Model
+librosa
+scikit-learn

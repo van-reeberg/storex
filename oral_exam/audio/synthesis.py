@@ -17,6 +17,7 @@ longer than about 14 seconds.
 import io
 import logging
 import os
+from pathlib import Path
 import re
 import threading
 import wave
@@ -91,7 +92,7 @@ def get_voice():
     return _voice
 
 
-def synthesize(text):
+def synthesize(text, save_to_file = False):
     """
     Renders the given text into a WAV file.
 
@@ -107,5 +108,16 @@ def synthesize(text):
     except Exception as error:  # noqa: BLE001 - a voice failure must not end an exam
         logger.exception("Speech synthesis failed: %s", error)
         return None
+    
+    # FHR
+    if save_to_file:
+        
+        filepath = os.getenv("WAV_PATH")
+        
+        with open(filepath, "wb") as f:
+            buffer.seek(0) 
+            f.write(buffer.read())  
+        
+        buffer.seek(0) 
 
     return buffer.getvalue()

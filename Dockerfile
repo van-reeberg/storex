@@ -17,12 +17,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir poetry
 
+
+
 # Dependencies first, so that a code change does not reinstall torch
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --only main --no-root
 
+# "FHR"
+# installs dependencies for the Viseme Detection-Model
+COPY ./requirements.txt /app/
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
 COPY . .
+
+
+# "FHR"
+# installs torch for cpu usage
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \

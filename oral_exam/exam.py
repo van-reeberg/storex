@@ -144,10 +144,17 @@ class ExamManager:
         duration = (int(exam_parameters['time']) * 60)
         self.time_manager = TimeManager(duration, topic_manager, self.feedback)
 
-    def speak(self, text):
-        """Outputs the given text via the speakers and in the terminal."""
+    def speak(self, text, eval=None):       
+        """Outputs the given text via the speakers and in the terminal.
+        (Adapted by FHR)
+
+        Args:
+            text (str): The text for TTS output.
+            eval (optional): The evaluation of the User-Response. Defaults to None.
+        """
+        
         if self.channel is not None:
-            self.channel.say(text)
+            self.channel.say(text, eval)
         elif self.ai_student:
             self.ai_student.log(text)
         else:
@@ -167,9 +174,15 @@ class ExamManager:
             print("Ihre Antwort lautet (in etwa):")
             colours.print_yellow(answer)
         return answer
+        
+    def ask_question(self, question, eval=None):     
+        """Outputs the given question, gets the students answer and evaluates the answer.
+        (adapted by FHR)
 
-    def ask_question(self, question):
-        """Outputs the given question, gets the students answer and evaluates the answer."""
+        Args:
+            question: a dictionary with the field 'question'. Contains the question the model should ask the user.
+            eval: The evaluation of the User-Response. Defaults to None.
+        """
         # The question text is not written back into the question, because the
         # predefined questions are shared data: prefixing in place would leak
         # into every later exam in the same process.
@@ -184,7 +197,7 @@ class ExamManager:
                 logger.info("AI answer: %s", answer)
         else:
             with self.time_manager:
-                self.speak(spoken_question)
+                self.speak(spoken_question, eval)
                 answer = self.get_answer()
         self.get_evaluation(question, answer)
 
@@ -264,15 +277,18 @@ class ExamManager:
         logger.info("The next question should be: %s", self.next_question.name)
 
     def ask_predefined_question(self):
-        """
-        Gets, asks and returns a predefined question.
+        """Gets, asks and returns a predefined question.
+        (adapted by FHR)
+
+        Returns:
+            predefined_question
         """
         # Get predefined question
         predefined_question = self.manager.get_question()
         logger.info("Predefined question: %s", predefined_question)
 
         # Get the students answer to the question and get feedback on the answer
-        self.ask_question(predefined_question)
+        self.ask_question(predefined_question, QuestionType.PREDEFINE)
 
         return predefined_question
 
@@ -288,10 +304,14 @@ class ExamManager:
         logger.info("Target: %s", target)
         return target
 
+        
     def ask_generated_question(self):
-        """
-        Gets, asks and returns a generated question.
+        """Gets, asks and returns a generated question.
         Falls back to a predefined question if none could be generated.
+        (adapted by FHR)
+
+        Returns:
+            generated_question
         """
         if not self.targets:
             return self.ask_predefined_question()
@@ -303,13 +323,16 @@ class ExamManager:
             return self.ask_predefined_question()
 
         # Get the students answer to the question and get feedback on the answer
-        self.ask_question(generated_question)
-
+        self.ask_question(generated_question, QuestionType.GENERATE)    
+        
         return generated_question
-
+        
     def ask_repeating_question(self):
-        """
-        Gets, asks and returns a reiterated question.
+        """Gets, asks and returns a reiterated question.
+        (adapted by FHR)
+
+        Returns:
+            repeating_question
         """
         # Get a Reiteration of the last question
         repeating_question = dict(self.last_question)
@@ -317,13 +340,16 @@ class ExamManager:
         logger.info("Generated reiteration: %s", repeating_question)
 
         # Get the students answer to the question and get feedback on the answer
-        self.ask_question(repeating_question)
+        self.ask_question(repeating_question, QuestionType.REPEAT)
 
         return repeating_question
-
+        
     def ask_selected_question(self):
-        """
-        Gets, asks and returns a question selected for a missed topic.
+        """Gets, asks and returns a question selected for a missed topic.
+        (adapted by FHR)
+
+        Returns:
+            selected_question
         """
         if not self.targets:
             return self.ask_predefined_question()
@@ -333,7 +359,7 @@ class ExamManager:
         logger.info("Selected question: %s", selected_question)
 
         # Get the students answer to the question and get feedback on the answer
-        self.ask_question(selected_question)
+        self.ask_question(selected_question, QuestionType.SELECTED) 
 
         return selected_question
 

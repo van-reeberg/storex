@@ -57,13 +57,27 @@ class Channel:
         self._inbox = queue.Queue(maxsize=1)
         self._aborted = False
 
-    # --- outbound ---------------------------------------------------------
-    def emit(self, event_type, text=None, state=None):
-        """Appends an event to the log and wakes every waiting poll."""
+    # --- outbound ---------------------------------------------------------       
+    def emit(self, event_type, text=None, state=None, eval=None):   
+        """Appends an event to the log and wakes every waiting poll.\n
+        (Adapted by FHR)
+
+        Args:
+            event_type: The type of the event.
+            text (optional): The text connected to the event. Defaults to None.
+            state (optional): The state of the model. Defaults to None.
+            eval (optional): The evaluation of the User-Response. Defaults to None.
+
+        Returns:
+            event
+        """
+        
         with self._condition:
             event = {"seq": len(self.events) + 1, "type": event_type}
             if text is not None:
                 event["text"] = text
+            if eval is not None:
+                event["eval"] = eval
             self.events.append(event)
             if state:
                 self.state = state
@@ -71,9 +85,15 @@ class Channel:
         logger.info("[%s] %s", event_type, text if text is not None else "")
         return event
 
-    def say(self, text):
-        """ExamManager.speak: the examiner says something."""
-        self.emit("say", text, state="speaking")
+    def say(self, text, eval=None): 
+        """ExamManager.speak: the examiner says something.\n
+        (Adapted by FHR)
+
+        Args:
+            text: The text that will be said by the examiner.
+            eval (optional): The evaluation of the User-Response. Defaults to None.
+        """
+        self.emit("say", text, state="speaking", eval=eval) 
 
     def close(self, state="finished"):
         """Marks the exam as over and wakes every waiting poll."""

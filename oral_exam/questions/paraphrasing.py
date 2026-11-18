@@ -79,7 +79,7 @@ class QuestionParaphraser:
         Generates a new question for a given answer.
         """
         if self.engine == "local":
-            import models
+            import oral_exam.models as models
             generated = models.get_paraphraser_pipeline(self.model)(
                 TEMPLATE.format(context=answer), max_new_tokens=250)
             return generated[0]["generated_text"].strip()

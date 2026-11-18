@@ -39,6 +39,9 @@ services:
       # Without this the models are downloaded again on every start
       - hf-cache:/cache/huggingface
       - ./runs:/app/runs
+      # "FHR"
+      # enables the audio file exchange with programs outside of docker (FHR)
+      - ./tts_files:/app/tts_files
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/health"]
       interval: 30s
@@ -64,6 +67,7 @@ services:
     volumes:
       - hf-cache:/cache/huggingface
     command: python -m oral_exam.warmup
+
 
   # One-off: checks every course manifest against its files.
   #   docker compose run --rm validate
